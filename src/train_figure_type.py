@@ -170,6 +170,36 @@ def train_one_epoch(
     return avg_loss, accuracy
 
 
+def evaluate(
+    dataloader: Iterable,
+    encoder: nn.Module,
+    head: nn.Module,
+    device: torch.device,
+    repr_mode: str,
+    num_classes: int,
+) -> dict:
+    """Compute confusion matrix and per-class accuracy."""
+    encoder.eval()
+    head.eval()
+    confusion = torch.zeros(num_classes, num_classes, dtype=torch.int64)
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images = images.to(device)
+            labels = labels.to(device)
+            feats = _extract_representation(encoder, images, repr_mode)
+            logits = head(feats)
+            preds = logits.argmax(1)
+            for t, p in zip(labels, preds):
+                confusion[t, p] += 1
+    per_class_acc = (
+        confusion.diag().float() / confusion.sum(dim=1).clamp(min=1).float()
+    ).tolist()
+    return {
+        "confusion_matrix": confusion.tolist(),
+        "per_class_accuracy": per_class_acc,
+    }
+
+
 def main() -> None:
     args = _parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -206,6 +236,9 @@ def main() -> None:
         pin_memory=True,
     )
 
+    output_dir = os.path.join("outputs", "figure_type")
+    os.makedirs(output_dir, exist_ok=True)
+
     if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(
             head.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay
@@ -224,6 +257,21 @@ def main() -> None:
             dataloader, encoder, head, optimizer, device, args.repr
         )
         print(f"Epoch {epoch:03d}: loss={loss:.4f} acc={acc*100:.2f}%")
+        if epoch % 10 == 0:
+            save_path = os.path.join(output_dir, f"model_epoch{epoch}.pth")
+            torch.save({"head": head.state_dict()}, save_path)
+
+    eval_loader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True,
+    )
+    metrics = evaluate(eval_loader, encoder, head, device, args.repr, num_classes)
+    metrics_path = os.path.join(output_dir, "metrics.json")
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f, indent=2)
 
 if __name__ == "__main__":
     main()
