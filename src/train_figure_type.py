@@ -22,6 +22,7 @@ import argparse
 import json
 import os
 from typing import Iterable
+from collections import defaultdict
 
 import torch
 import torch.nn as nn
@@ -57,6 +58,10 @@ def _parse_args() -> argparse.Namespace:
                         help="Encoder model architecture")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--val-ratio", type=float, default=0.2,
+                        help="Fraction of data used for validation")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="Random seed for train/val split")
     parser.add_argument("--optimizer", choices=["sgd", "adam", "adamw"],
                         default="adamw")
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -68,6 +73,16 @@ def _parse_args() -> argparse.Namespace:
                         help="Which encoder layer representation to use")
     parser.add_argument("--head", choices=["linear", "bn_linear"],
                         default="linear", help="Classification head type")
+    parser.add_argument("--output-dir", default="experiments/figure_type_linearprobe",
+                        help="Directory to save checkpoints and metrics")
+    parser.add_argument("--log-to-wandb", action="store_true",
+                        help="Log training metrics to Weights & Biases")
+    parser.add_argument("--wandb-project", default=None,
+                        help="W&B project name")
+    parser.add_argument("--wandb-entity", default=None,
+                        help="W&B entity/user name")
+    parser.add_argument("--wandb-run-name", default=None,
+                        help="W&B run name")
 
     if args_config.config is not None:
         import yaml
@@ -178,23 +193,32 @@ def evaluate(
     repr_mode: str,
     num_classes: int,
 ) -> dict:
-    """Compute confusion matrix and per-class accuracy."""
+    """Compute validation loss, accuracy and confusion matrix."""
     encoder.eval()
     head.eval()
     confusion = torch.zeros(num_classes, num_classes, dtype=torch.int64)
+    total_loss = 0.0
+    total_correct = 0
+    total_samples = 0
     with torch.no_grad():
         for images, labels in dataloader:
             images = images.to(device)
             labels = labels.to(device)
             feats = _extract_representation(encoder, images, repr_mode)
             logits = head(feats)
+            loss = F.cross_entropy(logits, labels)
             preds = logits.argmax(1)
+            total_loss += loss.item() * images.size(0)
+            total_correct += (preds == labels).sum().item()
+            total_samples += images.size(0)
             for t, p in zip(labels, preds):
                 confusion[t, p] += 1
     per_class_acc = (
         confusion.diag().float() / confusion.sum(dim=1).clamp(min=1).float()
     ).tolist()
     return {
+        "loss": total_loss / total_samples,
+        "accuracy": total_correct / total_samples,
         "confusion_matrix": confusion.tolist(),
         "per_class_accuracy": per_class_acc,
     }
@@ -228,15 +252,40 @@ def main() -> None:
         split="train",
         transform=transform,
     )
-    dataloader = DataLoader(
-        dataset,
+
+    # Stratified train/val split
+    rng = torch.Generator().manual_seed(args.seed)
+    class_to_indices: defaultdict[int, list[int]] = defaultdict(list)
+    for idx, (_, label) in enumerate(dataset.samples):
+        class_to_indices[label].append(idx)
+    train_indices: list[int] = []
+    val_indices: list[int] = []
+    for indices in class_to_indices.values():
+        indices = torch.tensor(indices)
+        perm = indices[torch.randperm(len(indices), generator=rng)]
+        split = int(len(perm) * (1 - args.val_ratio))
+        train_indices.extend(perm[:split].tolist())
+        val_indices.extend(perm[split:].tolist())
+
+    train_subset = torch.utils.data.Subset(dataset, train_indices)
+    val_subset = torch.utils.data.Subset(dataset, val_indices)
+
+    train_loader = DataLoader(
+        train_subset,
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
         pin_memory=True,
     )
+    val_loader = DataLoader(
+        val_subset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True,
+    )
 
-    output_dir = os.path.join("outputs", "figure_type")
+    output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
 
     if args.optimizer == "sgd":
@@ -252,26 +301,45 @@ def main() -> None:
             head.parameters(), lr=args.lr, weight_decay=args.weight_decay
         )
 
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
+
+    if args.log_to_wandb:
+        import wandb
+
+        wandb.init(project=args.wandb_project, entity=args.wandb_entity,
+                   name=args.wandb_run_name, config=vars(args))
+        wandb.watch(head, log="all", log_freq=100)
+
     for epoch in range(1, args.epochs + 1):
-        loss, acc = train_one_epoch(
-            dataloader, encoder, head, optimizer, device, args.repr
+        train_loss, train_acc = train_one_epoch(
+            train_loader, encoder, head, optimizer, device, args.repr
         )
-        print(f"Epoch {epoch:03d}: loss={loss:.4f} acc={acc*100:.2f}%")
+        val_metrics = evaluate(
+            val_loader, encoder, head, device, args.repr, num_classes
+        )
+        print(
+            f"Epoch {epoch:03d}: loss={train_loss:.4f} acc={train_acc*100:.2f}% "
+            f"val_loss={val_metrics['loss']:.4f} val_acc={val_metrics['accuracy']*100:.2f}%"
+        )
+        if args.log_to_wandb:
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "train_acc": train_acc,
+                    "val_loss": val_metrics["loss"],
+                    "val_acc": val_metrics["accuracy"],
+                },
+                step=epoch,
+            )
         if epoch % 10 == 0:
             save_path = os.path.join(output_dir, f"model_epoch{epoch}.pth")
             torch.save({"head": head.state_dict()}, save_path)
+        scheduler.step()
 
-    eval_loader = DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-        pin_memory=True,
-    )
-    metrics = evaluate(eval_loader, encoder, head, device, args.repr, num_classes)
     metrics_path = os.path.join(output_dir, "metrics.json")
     with open(metrics_path, "w") as f:
-        json.dump(metrics, f, indent=2)
+        json.dump(val_metrics, f, indent=2)
 
 if __name__ == "__main__":
     main()
