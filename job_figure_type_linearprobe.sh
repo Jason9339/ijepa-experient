@@ -15,6 +15,8 @@
 
 set -e
 
+cd /ceph/work/KLP/zihcilin39/ijepa-experient
+
 mkdir -p slurm-logs
 mkdir -p /ceph/work/KLP/zihcilin39/experiments/figure_type_linearprobe
 
@@ -34,7 +36,7 @@ echo "PyTorch version: $(python -c 'import torch; print(torch.__version__)')"
 # 安裝 wandb（確保可用）
 pip install --quiet wandb
 
-python src/train_figure_type.py \
+python -m src.train_figure_type \
   --config configs/figure_type_vith14_linearprobe.yaml \
   --checkpoint /ceph/work/KLP/zihcilin39/experiments/cosyn_vith14_ep300/jepa-latest.pth.tar \
   --model-name vit_huge \
