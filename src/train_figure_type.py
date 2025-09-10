@@ -122,6 +122,11 @@ def _build_encoder(args: argparse.Namespace) -> nn.Module:
     state = torch.load(args.checkpoint, map_location="cpu")
     if "encoder" in state:
         state = state["encoder"]
+    # Checkpoints trained with DistributedDataParallel/DataParallel prefix
+    # parameter names with "module.". Strip this prefix if present so that the
+    # weights can be loaded into a regular ``nn.Module`` instance.
+    if any(k.startswith("module.") for k in state.keys()):
+        state = {k.replace("module.", "", 1): v for k, v in state.items()}
     encoder.load_state_dict(state, strict=True)
     for p in encoder.parameters():
         p.requires_grad = False
