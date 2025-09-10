@@ -1,0 +1,25 @@
+Traceback (most recent call last):
+  File "/ceph/sharedfs/work/KLP/zihcilin39/ijepa-experient/main_wandb.py", line 16, in <module>
+    from src.train_wandb import main as app_main
+  File "/ceph/sharedfs/work/KLP/zihcilin39/ijepa-experient/src/train_wandb.py", line 54, in <module>
+    from src.datasets.cosyn import make_cosyn
+  File "/ceph/sharedfs/work/KLP/zihcilin39/ijepa-experient/src/datasets/cosyn.py", line 9, in <module>
+    import datasets
+  File "/ceph/work/KLP/zihcilin39/.conda/envs/ijepa/lib/python3.9/site-packages/datasets/__init__.py", line 17, in <module>
+    from .arrow_dataset import Column, Dataset
+  File "/ceph/work/KLP/zihcilin39/.conda/envs/ijepa/lib/python3.9/site-packages/datasets/arrow_dataset.py", line 58, in <module>
+    import pandas as pd
+  File "/ceph/work/KLP/zihcilin39/.conda/envs/ijepa/lib/python3.9/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/ceph/work/KLP/zihcilin39/.conda/envs/ijepa/lib/python3.9/site-packages/pandas/core/api.py", line 1, in <module>
+    from pandas._libs import (
+  File "/ceph/work/KLP/zihcilin39/.conda/envs/ijepa/lib/python3.9/site-packages/pandas/_libs/__init__.py", line 18, in <module>
+    from pandas._libs.interval import Interval
+  File "pandas/_libs/interval.pyx", line 1, in init pandas._libs.interval
+  File "pandas/_libs/hashtable.pyx", line 1, in init pandas._libs.hashtable
+  File "pandas/_libs/missing.pyx", line 1, in init pandas._libs.missing
+  File "/ceph/work/KLP/zihcilin39/.conda/envs/ijepa/lib/python3.9/site-packages/pandas/_libs/tslibs/__init__.py", line 40, in <module>
+    from pandas._libs.tslibs.conversion import localize_pydatetime
+  File "pandas/_libs/tslibs/conversion.pyx", line 1, in init pandas._libs.tslibs.conversion
+  File "pandas/_libs/tslibs/parsing.pyx", line 46, in init pandas._libs.tslibs.parsing
+ImportError: cannot import name DEFAULTPARSER

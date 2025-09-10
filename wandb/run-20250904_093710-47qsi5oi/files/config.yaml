@@ -1,0 +1,169 @@
+_wandb:
+    value:
+        cli_version: 0.21.1
+        e:
+            0c6h6ske6hljzwlo8jce51va12hofe47:
+                args:
+                    - --fname
+                    - configs/cosyn_vith14_ep300_wandb.yaml
+                    - --devices
+                    - cuda:0
+                codePath: main_wandb.py
+                codePathLocal: main_wandb.py
+                cpu_count: 32
+                cpu_count_logical: 64
+                cudaVersion: "12.6"
+                disk:
+                    /:
+                        total: "1193627484160"
+                        used: "45295251456"
+                email: jasonlin930309@gmail.com
+                executable: /ceph/work/KLP/zihcilin39/.conda/envs/ijepa/bin/python
+                git:
+                    commit: 52c1ae95d05f743e000e8f10a1f3a79b10cff048
+                    remote: https://github.com/Jason9339/ijepa-experient.git
+                gpu: NVIDIA A100-SXM4-80GB
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 6912
+                      memoryTotal: "85899345920"
+                      name: NVIDIA A100-SXM4-80GB
+                      uuid: GPU-dea80424-a1ea-bc01-20d9-da57b4e90383
+                host: hp-teslaa01
+                memory:
+                    total: "1081381257216"
+                os: Linux-5.14.0-427.40.1.el9_4.x86_64-x86_64-with-glibc2.34
+                program: /ceph/sharedfs/work/KLP/zihcilin39/ijepa-experient/main_wandb.py
+                python: CPython 3.9.23
+                root: /ceph/sharedfs/work/KLP/zihcilin39/ijepa-experient
+                slurm:
+                    cluster_name: slurm-ctrl01
+                    conf: /var/spool/slurmctld/conf-cache/slurm.conf
+                    cpus_on_node: "8"
+                    cpus_per_task: "8"
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    job_account: klp
+                    job_cpus_per_node: "8"
+                    job_end_time: "1757064715"
+                    job_gid: "661"
+                    job_gpus: "1"
+                    job_id: "1541419"
+                    job_name: ijepa-cosyn-wandb
+                    job_nodelist: hp-teslaa01
+                    job_num_nodes: "1"
+                    job_partition: a100-al9
+                    job_qos: klp_a100_reservation
+                    job_reservation: klp_reservation
+                    job_start_time: "1756978315"
+                    job_uid: "21432"
+                    job_user: zihcilin39
+                    jobid: "1541419"
+                    localid: "0"
+                    mem_per_node: "32768"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: hp-teslaa01
+                    nprocs: "1"
+                    ntasks: "1"
+                    ntasks_per_node: "1"
+                    prio_process: "0"
+                    procid: "0"
+                    submit_dir: /ceph/sharedfs/work/KLP/zihcilin39/ijepa-experient
+                    submit_host: slurm-ui03.twgrid.org
+                    task_pid: "3378507"
+                    tasks_per_node: "1"
+                    topology_addr: hp-teslaa01
+                    topology_addr_pattern: node
+                    tres_per_task: cpu=8
+                startedAt: "2025-09-04T09:37:10.726697Z"
+                writerId: 0c6h6ske6hljzwlo8jce51va12hofe47
+        m: []
+        python_version: 3.9.23
+        t:
+            "1":
+                - 1
+                - 41
+                - 49
+                - 51
+            "2":
+                - 1
+                - 41
+                - 49
+                - 51
+            "3":
+                - 13
+                - 15
+                - 16
+                - 61
+            "4": 3.9.23
+            "5": 0.21.1
+            "12": 0.21.1
+            "13": linux-x86_64
+data:
+    value:
+        batch_size: 32
+        color_jitter_strength: 0
+        crop_scale:
+            - 0.3
+            - 1
+        crop_size: 224
+        image_folder: ""
+        num_workers: 4
+        pin_mem: true
+        root_path: /ceph/work/KLP/zihcilin39/datasets
+        use_color_distortion: false
+        use_gaussian_blur: false
+        use_horizontal_flip: false
+logging:
+    value:
+        folder: /ceph/work/KLP/zihcilin39/experiments/cosyn_vith14_ep300/
+        use_wandb: true
+        wandb_entity: null
+        wandb_project: ijepa-cosyn-diagrams
+        wandb_run_name: cosyn-vith14-ep300
+        wandb_tags:
+            - ijepa
+            - cosyn
+            - diagram
+            - vit-huge
+        write_tag: jepa
+mask:
+    value:
+        allow_overlap: false
+        aspect_ratio:
+            - 0.75
+            - 1.5
+        enc_mask_scale:
+            - 0.85
+            - 1
+        min_keep: 10
+        num_enc_masks: 1
+        num_pred_masks: 4
+        patch_size: 14
+        pred_mask_scale:
+            - 0.15
+            - 0.2
+meta:
+    value:
+        copy_data: false
+        load_checkpoint: false
+        model_name: vit_huge
+        pred_depth: 12
+        pred_emb_dim: 384
+        read_checkpoint: null
+        use_bfloat16: true
+optimization:
+    value:
+        ema:
+            - 0.996
+            - 1
+        epochs: 200
+        final_lr: 1e-06
+        final_weight_decay: 0.4
+        ipe_scale: 1
+        lr: 0.001
+        start_lr: 0.0002
+        warmup: 40
+        weight_decay: 0.04
