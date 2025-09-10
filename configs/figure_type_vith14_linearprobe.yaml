@@ -1,12 +1,12 @@
 dataset:
-  root_dir: /ceph/work/KLP/zihcilin39/ijepa-experient/outputs/figure_type
-  pairs_tsv: pairs.tsv
-  index_json: figure_type_index.json
-  num_classes: 60
+  root_dir: /ceph/work/KLP/zihcilin39/datasets/CoSyn/diagram
+  pairs_tsv: /ceph/work/KLP/zihcilin39/ijepa-experient/outputs/figure_type/pairs.tsv
+  index_json: /ceph/work/KLP/zihcilin39/ijepa-experient/outputs/figure_type/figure_type_index.json
+  num_classes: 42
 
 optimization:
   optimizer: ["sgd", "adamw"]
-  lr: [1.0e-4, 1.0e-3, 1.0e-2]
-  weight_decay: [0.0, 0.05, 0.1]
-  batch_size: 64
-  epochs: 20
+  lr: [0.01, 0.05, 0.1]
+  weight_decay: [5.0e-4, 0.0]
+  batch_size: 256
+  epochs: 50
