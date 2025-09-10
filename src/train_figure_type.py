@@ -34,20 +34,33 @@ import src.models.vision_transformer as vit
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Figure-type classifier")
-    parser.add_argument("--root-dir", required=True,
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config", type=str,
+                               help="Path to YAML config file", default=None)
+
+    args_config, remaining = config_parser.parse_known_args()
+
+    parser = argparse.ArgumentParser(
+        parents=[config_parser], description="Figure-type classifier"
+    )
+    parser.add_argument("--root-dir",
                         help="Root directory containing the dataset")
-    parser.add_argument("--pairs-tsv", required=True,
+    parser.add_argument("--pairs-tsv",
                         help="TSV file with <id> <figure_type> <image_path>")
-    parser.add_argument("--index-json", required=True,
+    parser.add_argument("--index-json",
                         help="JSON index providing name_to_id mapping")
+    parser.add_argument("--num-classes", type=int,
+                        help="Number of classification labels")
     parser.add_argument("--checkpoint", required=True,
                         help="Path to checkpoint containing encoder weights")
     parser.add_argument("--model-name", default="vit_base",
                         help="Encoder model architecture")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--optimizer", choices=["sgd", "adam", "adamw"],
+                        default="adamw")
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=0.0)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--crop-size", type=int, default=224)
     parser.add_argument("--crop-scale", type=float, nargs=2, default=(0.3, 1.0))
@@ -55,7 +68,37 @@ def _parse_args() -> argparse.Namespace:
                         help="Which encoder layer representation to use")
     parser.add_argument("--head", choices=["linear", "bn_linear"],
                         default="linear", help="Classification head type")
-    return parser.parse_args()
+
+    if args_config.config is not None:
+        import yaml
+
+        with open(args_config.config, "r") as f:
+            cfg = yaml.safe_load(f) or {}
+        dataset_cfg = cfg.get("dataset", {})
+        optim_cfg = cfg.get("optimization", {})
+
+        if isinstance(optim_cfg.get("optimizer"), list):
+            optim_cfg["optimizer"] = optim_cfg["optimizer"][0]
+        if isinstance(optim_cfg.get("lr"), list):
+            optim_cfg["lr"] = optim_cfg["lr"][0]
+        if isinstance(optim_cfg.get("weight_decay"), list):
+            optim_cfg["weight_decay"] = optim_cfg["weight_decay"][0]
+
+        parser.set_defaults(**dataset_cfg)
+        parser.set_defaults(**optim_cfg)
+
+    args = parser.parse_args(remaining)
+
+    missing = [
+        name for name in ("root_dir", "pairs_tsv", "index_json")
+        if getattr(args, name) is None
+    ]
+    if missing:
+        parser.error(
+            f"Missing required arguments: "
+            + ", ".join(f"--{m.replace('_', '-')}" for m in missing)
+        )
+    return args
 
 
 def _build_encoder(args: argparse.Namespace) -> nn.Module:
@@ -134,9 +177,12 @@ def main() -> None:
     index_path = args.index_json
     if not os.path.isabs(index_path):
         index_path = os.path.join(args.root_dir, index_path)
-    with open(index_path, "r") as f:
-        index_data = json.load(f)
-    num_classes = len(index_data.get("name_to_id", {}))
+    if args.num_classes is not None:
+        num_classes = args.num_classes
+    else:
+        with open(index_path, "r") as f:
+            index_data = json.load(f)
+        num_classes = len(index_data.get("name_to_id", {}))
 
     encoder = _build_encoder(args).to(device)
     head = _build_head(encoder.embed_dim, num_classes, args.head).to(device)
@@ -160,7 +206,18 @@ def main() -> None:
         pin_memory=True,
     )
 
-    optimizer = torch.optim.AdamW(head.parameters(), lr=args.lr)
+    if args.optimizer == "sgd":
+        optimizer = torch.optim.SGD(
+            head.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay
+        )
+    elif args.optimizer == "adam":
+        optimizer = torch.optim.Adam(
+            head.parameters(), lr=args.lr, weight_decay=args.weight_decay
+        )
+    else:
+        optimizer = torch.optim.AdamW(
+            head.parameters(), lr=args.lr, weight_decay=args.weight_decay
+        )
 
     for epoch in range(1, args.epochs + 1):
         loss, acc = train_one_epoch(
